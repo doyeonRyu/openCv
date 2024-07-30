@@ -2,12 +2,15 @@
 
     # This code is for detecting faces in a video stream from a webcam using OpenCV.
     # The code uses the Haar Cascade Classifier to detect faces in the video stream.
-    # 웹캠으로 얼굴을 감지해 사각형을 그리고 얼굴 개수를 화면에 출력함
-    # 웹캠을 비디오로 저장
-    # 
+
+    # Detect faces from webcam, draw a rectangle and print the number of faces on the screen.
+    # Save the webcam as a video.
+    # Save ['Frame', 'Timestamp', 'face_count'] data as a csv file on a frame-by-frame basis.
 
 import cv2
 import sys
+from datetime import datetime
+import pandas as pd
 
 # Read from the camera
 cap = cv2.VideoCapture(0)
@@ -17,9 +20,15 @@ cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-# Define the codec and create VideoWriter object
+# Initialize a list to store detection data
+detections = []
+
+frame_number = 0
+
+# Save the video as output.avi
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('output.avi', fourcc, 20.0, (640, 480))
+fps = cap.get(cv2.CAP_PROP_FPS) # 30.0
+out = cv2.VideoWriter('output.avi', fourcc, fps, (640, 480))
 
 # Load the face detector
 face_cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
@@ -33,14 +42,27 @@ if face_cascade.empty():
 while cap.isOpened():
     ret, frame = cap.read()
     if ret:
+        frame_number += 1
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, 1.05, 4, minSize=(200, 200))
 
+        # Calculate the number of faces detected
+        face_count = len(faces)
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+# if you want to save like this, you can add the following code
+# df = pd.DataFrame(detections, columns=['Frame', 'Timestamp', 'Face_Count', 'X', 'Y', 'Width', 'Height'])
+
+#        if face_count == 0:
+#            # Append data with no face detected
+#            detections.append([frame_number, current_time, face_count, None, None, None, None])
+#        else:
         for (x, y, w, h) in faces:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-        
+            # Append detection data to the list with the current timestamp
+            detections.append([frame_number, current_time, face_count])
+    
         # Display the number of faces detected
-        face_count = len(faces)
         cv2.putText(frame, f'Faces: {face_count}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
 
         # Write the frame into the file 'output.avi'
@@ -58,3 +80,12 @@ while cap.isOpened():
 cap.release()
 out.release()
 cv2.destroyAllWindows()
+
+# Create a DataFrame from the detections list
+df = pd.DataFrame(detections, columns=['Frame', 'Timestamp', 'Face_Count'])
+# df = pd.DataFrame(detections, columns=['Frame', 'Timestamp', 'Face_Count', 'X', 'Y', 'Width', 'Height'])
+
+# Save the DataFrame to a CSV file
+df.to_csv('face_detections.csv', index=False)
+
+print("Face detection data saved to 'face_detections.csv'")
